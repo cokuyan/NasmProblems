@@ -1,9 +1,9 @@
 This repository just holds some personal nasm projects on 32 bit Linux.
 
-lib/
+# `lib/`
 This folder holds a few standard procedures to be used in other projects
 
-line_nums/
+# `line_nums/`
 This folder holds a procedure with sample input and output files. The procedure itself simply prefixes each line of the input file with its line number.
 To compile and run this program, do:
 ```
