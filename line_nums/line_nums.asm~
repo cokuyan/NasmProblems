@@ -1,0 +1,123 @@
+; This program takes in a file and appends the line number
+; of each line to the beginning of each line
+; The CLI is: line_nums <input file> <output file>
+; If an output file is not specified, the output will be
+; put in a file called 'out.txt'.
+
+[SECTION .data] ; section for initialized data
+
+WriteBase db '%d: %s', 0 ; string format for output
+WriteCode db 'w', 0 ; signifier for write access to file
+ReadCode db 'r', 0 ; signifier for read access to file
+DefaultWriteFile db 'out.txt', 0 ; output filename when not supplied
+HelpText db 'Please specify an input file and an optional output file.', 10,0
+HELPLEN EQU $-HelpText
+
+[SECTION .bss] ; section for declared variables
+
+LineCount resd 1 ; variable to hold the current line number being printed
+BUFSIZE EQU 80 ; max size for string buffer
+Buff resb BUFSIZE+5 ; string buffer to hold each line (+5 for safety)
+ReadFile resd 1 ; pointer to input file handler
+WriteFile resd 1 ; pointer to output file handler
+
+[SECTION .text] ; section for code
+
+; references to C standard library functions
+extern fopen
+extern fclose
+extern fgets
+extern fprintf
+extern printf
+
+global main ; declare main access point global so compiler can access it
+
+main:
+; setup stack frame for procedure
+  push ebp
+  mov ebp, esp
+  push ebx
+  push esi
+  push edi
+
+; 
+checkArgCount:
+  mov eax, [ebp + 8]
+  cmp eax, 1
+  ja openFirstFile
+  jmp outputHelp
+
+openFirstFile:
+  mov ebx, [ebp + 12]
+  push ReadCode
+  push DWORD [ebx + 4]
+  call fopen
+  add esp, 8
+  cmp eax, 0
+  jz exit
+  mov [ReadFile], eax
+
+openSecondFile:
+  mov eax, [ebp + 8]
+  push WriteCode
+  cmp eax, 2
+  jna .useDefaultWriteFile
+  mov ebx, [ebp + 12]
+  push DWORD [ebx + 8]
+  jmp .open
+
+.useDefaultWriteFile:
+  push DefaultWriteFile
+
+.open:
+  call fopen
+  add esp, 8
+  cmp eax, 0
+  jz exit
+  mov [WriteFile], eax
+
+  mov DWORD [LineCount], 0 ; initialize line count variable
+
+; need to handle edge case where file is empty
+copyText:
+  add DWORD [LineCount], 1
+  push DWORD [ReadFile]
+  push DWORD BUFSIZE
+  push Buff
+  call fgets
+  add esp, 12
+  cmp eax, 0
+  jle closeFiles
+
+writeText:
+  push Buff
+  push DWORD [LineCount]
+  push WriteBase
+  push DWORD [WriteFile]
+  call fprintf
+  add esp, 16
+  jmp copyText
+
+closeFiles:
+  push DWORD [ReadFile]
+  call fclose
+  add esp, 4
+  push DWORD [WriteFile]
+  call fclose
+  add esp, 4
+
+exit:
+  pop edi
+  pop esi
+  pop ebx
+  mov esp, ebp
+  pop ebp
+  ret
+
+outputHelp:
+  mov ecx, HelpText
+  mov edx, HELPLEN
+  mov eax, 4
+  mov ebx, 1
+  int 80h
+  jmp exit
